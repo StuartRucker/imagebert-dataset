@@ -1,0 +1,135 @@
+<html>
+    <head>
+        <script>
+
+            global_counter = 0
+
+            // returns the pixel coordinates
+            
+            
+            function run(){
+
+                tokenization = [`[UNK]`,`cry`,`##pt`,`##o`,`[UNK]`,`[UNK]`, `economics`,`[UNK]`,`language`,`[UNK]`,`lifestyle`,`[UNK]`,`l`,`##in`,`##ux`,`[UNK]`,`personal`,`[UNK]`,`philosophy`,`[UNK]`,`politics`,`[UNK]`,`religion`,`[UNK]`,`science`,`[UNK]`,`software`,`[UNK]`,`technology`,`[UNK]`,`tradition`,`[UNK]`,`tutor`,`##ial`,`[UNK]`,`updates`]
+                
+                textNode = document.getElementById("textnode").childNodes[0]
+                var text = textNode.nodeValue.toLowerCase()
+
+                //iterate through tokens and parir them with the text
+                unknown_count = 0
+                offsets = []
+
+                current_offset = 0
+                for(var i = 0; i < tokenization.length; i++){
+                    if(tokenization[i] == "[UNK]"){
+                        unknown_count += 1
+                        continue
+                    }
+
+
+
+                    let use_token = tokenization[i].toLowerCase()
+                    if(use_token.startsWith("##")){
+                        use_token = use_token.substring(2)
+                    }
+
+                
+                    
+                    let index = text.indexOf(use_token)
+                    let end_index = index + use_token.length
+                    let start_index = 0
+
+                    if(index == -1){
+                        unknown_count += 1
+                        continue
+                    }
+
+                    if(unknown_count > 0){
+                        unknown_text = text.substring(0, index)
+                        //partition unknwn text into unknown_count parts
+                        let unknown_text_parts = []
+                        let unknown_text_part_length = Math.floor(unknown_text.length / unknown_count)
+                        let unk_start_index = 0
+                        for(var j = 0; j < unknown_count; j++){
+                            let unk_end_index = unk_start_index + unknown_text_part_length
+                            if(j == unknown_count - 1){
+                                unk_end_index = unknown_text.length
+                            }
+                            unknown_text_parts.push(unknown_text.substring(unk_start_index, unk_end_index))
+
+                            offsets.push( [current_offset + unk_start_index, current_offset + unk_end_index] )
+
+                            unk_start_index = unk_end_index
+                        }
+                        
+
+                        start_index = index
+                        unknown_count = 0
+
+                        // print all the parts
+                        // for(var j = 0; j < unknown_text_parts.length; j++){
+                        //     console.log(unknown_text_parts[j])
+                        // }
+                    }
+
+                    // console.log(text.substring(start_index, end_index))
+
+                    offsets.push( [current_offset + start_index, current_offset + end_index] )
+                    text = text.substring(end_index)
+
+                    current_offset += end_index
+                }  
+
+                
+                
+                //Get a range corresponding to each token
+                var final_data = []
+                original_text = textNode.nodeValue.toLowerCase()
+                let t = document.getElementById("textnode").ownerDocument.documentElement.getBoundingClientRect();
+
+                for(var i = 0; i < offsets.length; i++){
+                    let token = tokenization[global_counter]
+                    let range = new Range()
+                    range.setStart(textNode, offsets[global_counter][0])
+                    range.setEnd(textNode, offsets[global_counter][1])
+                    
+                    
+                    var e = range.getBoundingClientRect()
+                    
+                    
+                    final_data.push({
+                        x: e.left - t.left,
+                        y: e.top - t.top,
+                        width: e.width,
+                        height: e.height,
+                        token: token,
+                        word: original_text.substring(offsets[i][0], offsets[i][1])
+                    })
+
+                    if(i == global_counter){
+                        window.getSelection().empty()
+                        window.getSelection().addRange(range)
+                        
+                    }
+                }
+                global_counter = (global_counter + 1) % tokenization.length
+                return final_data
+            }   
+        </script>
+    <style>
+        .outside {
+        margin-left:auto;
+        margin-right:auto;
+        width:200px;
+        }
+    </style>
+</head>
+<body>
+    
+    
+    <p id="textnode">💰 Crypto📈📈 Economics🗣️ Language👨‍👩‍👦 Lifestyle🐃 Linux😎 Personal🎓 Philosophy👑 Politics⛪ Religion🥼 Science🖥️ Software⚙️ Technology📜 Tradition📖 Tutorial🆕 Updates</p>
+    <button onclick="run()">Run</button> 
+    </body>
+
+    
+
+</html>
