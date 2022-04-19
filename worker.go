@@ -6,7 +6,9 @@ import (
 	"io/ioutil"
 	"log"
 	"math"
+	"math/rand"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/chromedp/cdproto/cdp"
@@ -16,23 +18,71 @@ import (
 	"github.com/rs/xid"
 )
 
+// URL struct with a list of URLs
+type URLs struct {
+	mu   sync.Mutex
+	list []string
+	used map[string]bool
+}
+
 func BeWorker() {
-	test_webdrive()
-}
 
-func test_webdrive() {
-	// processWebsite("https://www.google.com/search?q=%22&sxsrf=APq-WBsRVfgtHc3KapN5k47kjlq8CfK5eg%3A1649894032505&source=hp&ei=kGJXYr33GqCdptQPpeKzmAI&iflsig=AHkkrS4AAAAAYldwoGmFA9aiwhycbhZXhZxUlB83TQmz&ved=0ahUKEwi9_-GdnpL3AhWgjokEHSXxDCMQ4dUDCAk&uact=5&oq=%22&gs_lcp=Cgdnd3Mtd2l6EANQAFgAYO8BaABwAHgAgAFjiAFjkgEBMZgBAKABAQ&sclient=gws-wiz")
-	// // processWebsite("https://www.miniclip.com/games/en/")
-	s := "💰 Crypto📈 Economics🗣️ Language👨‍👩‍👦 Lifestyle🐃 Linux😎 Personal🎓 Philosophy👑 Politics⛪ Religion🥼 Science🖥️ Software⚙️ Technology📜 Tradition📖 Tutorial🆕 Updates"
-	// s := "Hello World"
-	tokens := maskifyText(s)
-	for _, token := range tokens {
-		fmt.Printf("%s\t(%s)\n", token.word, token.token)
+	// create directories
+	os.MkdirAll("data/img", 0755)
+	os.MkdirAll("data/csv", 0755)
+
+	urls := URLs{
+		used: make(map[string]bool),
+		list: []string{"https://www.google.com/search?q=lovely&rlz=1C5CHFA_enUS999US1000&oq=lovely&aqs=chrome..69i57j46i433i512j46i175i199i512j46i131i433i512j46i433i512j0i433i457i512j69i61l2.4509j0j7&sourceid=chrome&ie=UTF-8"}}
+
+	// while urls is not empty
+	for {
+
+		// get a random url from the list
+		urls.mu.Lock()
+		if len(urls.list) == 0 {
+			urls.mu.Unlock()
+			continue
+		}
+		if len(urls.list) > 5000 {
+			urls.list = urls.list[:3000]
+		}
+
+		delete_index := rand.Intn(len(urls.list))
+		url := urls.list[delete_index]
+		urls.used[url] = true
+		if len(urls.list) > 1 {
+			urls.list = append(urls.list[:delete_index], urls.list[delete_index+1:]...)
+		} else {
+			urls.list = []string{}
+		}
+
+		urls.mu.Unlock()
+
+		go func() {
+			// process the url
+
+			newUrls := processWebsite(url)
+			// print the length of the new urls
+			// fmt.Printf("%d new urls\n", len(newUrls))
+			urls.mu.Lock()
+			//append the newURLs that are not used
+			for _, newUrl := range newUrls {
+				if _, ok := urls.used[newUrl]; !ok {
+					urls.list = append(urls.list, newUrl)
+				}
+			}
+			urls.mu.Unlock()
+
+		}()
+
+		time.Sleep(time.Second)
+
 	}
-
 }
 
-func processWebsite(url string) {
+func processWebsite(url string) []string {
+	fmt.Printf("Processing %s\n", url)
 	ctx, cancel := chromedp.NewContext(context.Background())
 	defer cancel()
 
@@ -40,19 +90,31 @@ func processWebsite(url string) {
 	run := Run{id: xid.New().String()}
 
 	//make a new folder data/{run.id} if it doesn't exist
-	run.folder = fmt.Sprintf("data/%s", run.id)
-	run.tokenCsv = "data/tokens.csv"
-	run.url = url
-	os.MkdirAll(run.folder, 0755)
 
-	err := chromedp.Run(ctx, processWebsiteHelper(run, url, "html"))
+	run.tokenCsv = fmt.Sprintf("data/csv/{%s}-tokens.csv", run.id)
+	run.url = url
+	//channel of strings
+	run.urls = make(chan []string, 1)
+
+	err := chromedp.Run(ctx, processWebsiteHelper(&run, url, "html"))
 	if err != nil {
-		log.Fatal(err)
+		fmt.Printf("Failed on %s, but continuing", url)
 	}
+
+	//wait for run.urls to be populate
+	select {
+	case found_urls := <-run.urls:
+		// fmt.Printf("%d Select found urls\n", len(found_urls))
+		return found_urls
+	case <-time.After(time.Second * 10):
+		fmt.Printf("%d Select timeout\n", len(run.urls))
+		return []string{}
+	}
+
 }
 
 // returns the list of commands to process a website
-func processWebsiteHelper(run Run, pageUrl, of string, opts ...chromedp.QueryOption) chromedp.Tasks {
+func processWebsiteHelper(run *Run, pageUrl, of string, opts ...chromedp.QueryOption) chromedp.Tasks {
 	var nodes []*cdp.Node
 	var buf []byte
 	return chromedp.Tasks{
@@ -63,42 +125,30 @@ func processWebsiteHelper(run Run, pageUrl, of string, opts ...chromedp.QueryOpt
 		// populate tree of dom nodes
 		chromedp.Nodes(of, &nodes),
 		chromedp.ActionFunc(func(c context.Context) error {
-			fmt.Printf("Processing Nodes\n")
+			// fmt.Printf("Processing Nodes\n")
 			return dom.RequestChildNodes(nodes[0].NodeID).WithDepth(-1).Do(c)
 		}),
 
 		// wait a little while for dom.EventSetChildNodes to be fired and handled
 		chromedp.Sleep(time.Second),
 		chromedp.ActionFunc(func(c context.Context) error {
-			fmt.Printf("Applying Mask Tag\n")
-			maskify(nodes, &c)
-			return nil
-		}),
-
-		// //reset the dom tree nodes to include maskify tags
-		chromedp.ActionFunc(func(c context.Context) error {
-			fmt.Printf("Updating nodes after adding mask tags\n")
-			return dom.RequestChildNodes(nodes[0].NodeID).WithDepth(-1).Do(c)
-		}),
-
-		// // wait a little while for dom.EventSetChildNodes to be fired and handled
-		chromedp.Sleep(time.Second),
-
-		chromedp.ActionFunc(func(c context.Context) error {
-			//print the len of nodes
-			fmt.Printf("%v\n", len(nodes))
 			nodeToMaskifies := make(map[cdp.NodeID][]Maskify)
-
-			for i, node := range nodes {
-				fmt.Printf("Finding valid screenshots %d/%d\n", i, len(nodes))
-				_, nodesToScreenshot := screenshotify(&c, node, &nodeToMaskifies)
+			for _, node := range nodes {
+				// fmt.Printf("Finding valid screenshots %d/%d\n", i, len(nodes))
+				_, nodesToScreenshot := maskify(&c, node, &nodeToMaskifies)
 				for _, nodeToScreenshot := range nodesToScreenshot {
-					screenShotNode(run, &c, nodeToScreenshot)
-					logNode(run, &c, nodeToScreenshot.NodeID, nodeToMaskifies[nodeToScreenshot.NodeID])
+					clip := getCoordinates(&c, nodeToScreenshot)
+					screenShotNode(run, &c, nodeToScreenshot, clip)
+					logNode(run, &c, nodeToScreenshot.NodeID, nodeToMaskifies[nodeToScreenshot.NodeID], clip)
 				}
 			}
+
+			// write extract_links(&c, nodes[0]) to the run.urls channel
+			run.urls <- extract_links(&c, nodes[0])
+
 			return nil
 		}),
+
 		chromedp.FullScreenshot(&buf, 90),
 		chromedp.ActionFunc(func(c context.Context) error {
 			if err := ioutil.WriteFile("fullScreenshot.png", buf, 0o644); err != nil {
@@ -108,6 +158,24 @@ func processWebsiteHelper(run Run, pageUrl, of string, opts ...chromedp.QueryOpt
 		}),
 	}
 
+}
+
+type ListofLinks struct {
+	Links []string `json:"links"`
+}
+
+func extract_links(ctx *context.Context, node *cdp.Node) []string {
+	js_code := `function getLinks() {
+		const links = document.querySelectorAll("a");
+		const links_array = [];
+		for (let i = 0; i < links.length; i++) {
+			links_array.push(links[i].href);
+		}
+		return {'links': links_array};
+	}`
+	var links ListofLinks
+	chromedp.CallFunctionOnNode(*ctx, node, js_code, &links)
+	return links.Links
 }
 
 func getCoordinates(ctx *context.Context, node *cdp.Node) page.Viewport {
@@ -129,46 +197,6 @@ func getCoordinates(ctx *context.Context, node *cdp.Node) page.Viewport {
 	clip.Width, clip.Height = math.Round(clip.Width+clip.X-x), math.Round(clip.Height+clip.Y-y)
 	clip.Scale = 1
 	return clip
-}
-
-func screenshotify(ctx *context.Context, node *cdp.Node, nodeToMaskify *map[cdp.NodeID][]Maskify) ([]Maskify, []*cdp.Node) {
-	maskifies := make([]Maskify, 0)
-	// fmt.Printf("Node Name: %s\n", node.NodeName)
-	allChildScreenshotNodes := make([]*cdp.Node, 0)
-	if len(node.Children) > 0 {
-		for _, child := range node.Children {
-
-			// append screenshotify(ctx, child) to maskifies
-
-			childMaskifies, childScreenshotNodes := screenshotify(ctx, child, nodeToMaskify)
-			maskifies = append(maskifies, childMaskifies...)
-			allChildScreenshotNodes = append(allChildScreenshotNodes, childScreenshotNodes...)
-		}
-	}
-
-	if node.NodeName == "MASKIFY" {
-		m := Maskify{
-			word:  node.NodeValue,     //todo not working
-			token: node.Attributes[1], // flat key, value, key, value structure
-			node:  node,
-		}
-		// fmt.Printf("APPTCHA%v\n", m)
-
-		//TODO add logic to make sure coordinates check out
-		maskifies = append(maskifies, m)
-	}
-
-	if len(maskifies) > 50 && len(maskifies) < 512 {
-		//screenshot worthy!
-		//screenshot the element
-		if wouldScreenShotNode(ctx, node) {
-			allChildScreenshotNodes = make([]*cdp.Node, 0)
-			allChildScreenshotNodes = append(allChildScreenshotNodes, node)
-			(*nodeToMaskify)[node.NodeID] = maskifies
-		}
-	}
-
-	return maskifies, allChildScreenshotNodes
 }
 
 func wouldScreenShotNode(ctx *context.Context, node *cdp.Node) bool {
