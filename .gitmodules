@@ -1,0 +1,3 @@
+[submodule "chromedp"]
+	path = chromedp
+	url = https://github.com/StuartRucker/chromedp
