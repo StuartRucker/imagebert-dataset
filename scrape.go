@@ -41,7 +41,7 @@ func processWebsite(url string) []string {
 	case found_urls := <-run.urls:
 		// fmt.Printf("%d Select found urls\n", len(found_urls))
 		return found_urls
-	case <-time.After(time.Second * 300):
+	case <-time.After(time.Second * 600):
 		fmt.Printf("%d Select timeout\n", len(run.urls))
 		return []string{}
 	}
@@ -73,7 +73,7 @@ func processWebsiteHelper(run *Run, pageUrl, of string, opts ...chromedp.QueryOp
 			// get valid nodes
 			visible = make(map[*cdp.Node]bool)
 			for _, node := range nodes {
-				checkVisibleSimple(&c, &visible, run, node)
+				checkVisible(&c, &visible, run, node)
 			}
 			return nil
 		}),

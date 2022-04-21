@@ -15,7 +15,7 @@ func main() {
 	if os.Args[1] == "leader" {
 		leader := new(Leader)
 
-		leader.urls = []string{"https://lukesmith.xyz/"}
+		leader.urls = []string{"https://www.google.com/search?q=lovely&rlz=1C5CHFA_enUS999US1000&oq=lovely&aqs=chrome..69i57j46i433i512j46i175i199i512j0i67i433j46i67j46i131i433i512j46i433i512j69i60.1227j0j7&sourceid=chrome&ie=UTF-8"}
 		// append the same url to the list 100x
 		// for i := 0; i < 100; i++ {
 		// 	leader.urls = append(leader.urls, "https://lukesmith.xyz/")
