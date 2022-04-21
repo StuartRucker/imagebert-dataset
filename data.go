@@ -21,11 +21,12 @@ type Run struct {
 	folder   string
 	url      string
 	tokenCsv string
+	// tokenCsvLock *sync.Mutex
 	//create a channel that holds a list of urls
 	urls chan []string
 }
 
-func screenShotNode(run *Run, ctx *context.Context, node *cdp.Node, clip page.Viewport) {
+func screenShotAndSaveNode(run *Run, ctx *context.Context, node *cdp.Node, clip page.Viewport) {
 
 	// take screenshot of the box
 	buf, _ := page.CaptureScreenshot().
@@ -45,6 +46,7 @@ func screenShotNode(run *Run, ctx *context.Context, node *cdp.Node, clip page.Vi
 run.url, run.id, maskifies.word, maskifies.token, coords.x, coords.y, coords.width, coords.height
 */
 func logNode(run *Run, ctx *context.Context, nodeId cdp.NodeID, maskifies []Maskify, clip page.Viewport) {
+	// TODO does there need to be locking
 	f, err := os.OpenFile(run.tokenCsv, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Println(err)
@@ -69,5 +71,3 @@ func logNode(run *Run, ctx *context.Context, nodeId cdp.NodeID, maskifies []Mask
 	}
 
 }
-
-// Todo: meta logging with the whole text

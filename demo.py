@@ -17,7 +17,7 @@ def generate():
     chosen_file = random.choice(all_files)
     # extract the id from the filename formated as {id}-tokens.csv
     id = chosen_file.split('-')[0]
-    id = id[1:-1]
+    # id = id[1:-1]
 
 
 

@@ -27,21 +27,26 @@ type maskifyJsOutput struct {
 	Data []Maskify `json:"data"`
 }
 
-func tokenizeText(text string) []string {
+var maskify_js string
+var tkz tokenize.Tokenizer
 
-	// todo: move initialization out of the loop
+func maskify_init() {
+	maskify_js = getFile("maskify.js")
 
 	vocabPath := "vocab.txt"
 	voc, err := vocab.FromFile(vocabPath)
 	if err != nil {
 		panic(err)
 	}
-	tkz := tokenize.NewTokenizer(voc)
+	tkz = tokenize.NewTokenizer(voc)
 
+}
+
+func tokenizeText(text string) []string {
 	return tkz.Tokenize(text)
 }
 
-func maskify(ctx *context.Context, node *cdp.Node, nodeToMaskify *map[cdp.NodeID][]Maskify) ([]Maskify, []*cdp.Node) {
+func maskify(ctx *context.Context, visible *map[*cdp.Node]bool, node *cdp.Node, nodeToMaskify *map[cdp.NodeID][]Maskify) ([]Maskify, []*cdp.Node) {
 
 	maskifies := make([]Maskify, 0)
 	allChildScreenshotNodes := make([]*cdp.Node, 0)
@@ -53,14 +58,13 @@ func maskify(ctx *context.Context, node *cdp.Node, nodeToMaskify *map[cdp.NodeID
 
 			// append screenshotify(ctx, child) to maskifies
 
-			childMaskifies, childScreenshotNodes := maskify(ctx, child, nodeToMaskify)
+			childMaskifies, childScreenshotNodes := maskify(ctx, visible, child, nodeToMaskify)
 			maskifies = append(maskifies, childMaskifies...)
 			allChildScreenshotNodes = append(allChildScreenshotNodes, childScreenshotNodes...)
 		}
 	} else if len(text) > 4 && node.NodeType == 3 {
 
 		//read from the file "maskify.js" into a string
-		maskify_js := getFile("maskify.js")
 
 		tokens := tokenizeText(text)
 		var output maskifyJsOutput
@@ -72,7 +76,7 @@ func maskify(ctx *context.Context, node *cdp.Node, nodeToMaskify *map[cdp.NodeID
 	if len(maskifies) > 50 && len(maskifies) < 512 {
 		//screenshot worthy!
 		//screenshot the element
-		if wouldScreenShotNode(ctx, node) {
+		if wouldScreenShotNode(ctx, node) && (*visible)[node] {
 			allChildScreenshotNodes = make([]*cdp.Node, 0)
 			allChildScreenshotNodes = append(allChildScreenshotNodes, node)
 			(*nodeToMaskify)[node.NodeID] = maskifies

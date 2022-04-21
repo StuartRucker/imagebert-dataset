@@ -109,7 +109,6 @@ function maskify(tokenization){
     }  
 
     
-    
     //Get a range corresponding to each token
     var final_data = []
     original_text = textNode.nodeValue.toLowerCase()

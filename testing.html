@@ -1,6 +1,11 @@
 <html>
     <head>
+        <script src="maskify.js"></script>
         <script>
+            function run_maskify(){
+                textNode = document.getElementById("textnode").childNodes[0]
+                console.log(maskify( [`[UNK]`,`cry`,`##pt`,`##o`,`[UNK]`,`[UNK]`, `economics`], textNode))
+            }
 
             global_counter = 0
 
@@ -128,6 +133,7 @@
     
     <p id="textnode">💰 Crypto📈📈 Economics🗣️ Language👨‍👩‍👦 Lifestyle🐃 Linux😎 Personal🎓 Philosophy👑 Politics⛪ Religion🥼 Science🖥️ Software⚙️ Technology📜 Tradition📖 Tutorial🆕 Updates</p>
     <button onclick="run()">Run</button> 
+    <button onclick="run_maskify()">Test</button> 
     </body>
 
     
