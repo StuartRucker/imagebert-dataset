@@ -78,7 +78,7 @@ All three methods combined were pretty good, but still imperfect especially on b
 On my macbook, using all three methods on an average page takes around 3 minutes each and I can run around 10 in parallel, but on my $5 digital ocean droplets it was not possible to use method 3.
 
 
-### Dataset Download {#dataset-download}
+### Dataset Download 
 
 A sample dataset generated overnight on the $5 droplet, consisting of around 500 images: (using only method 1 and 2 for visibility checking) [https://www.dropbox.com/sh/paabmstks4svwsh/AAAiP8vT9x0vh4M1QnywQkO1a?dl=0](https://www.dropbox.com/sh/paabmstks4svwsh/AAAiP8vT9x0vh4M1QnywQkO1a?dl=0)
 
